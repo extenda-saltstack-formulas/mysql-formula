@@ -1,6 +1,10 @@
 mysql:
   repo: True
 
+  # When specifying the version its possible to use wildcard "*".
+  # Ex. '5.7.13-1.el7' --> '5.7.13*'
+  version: '5.6.26*'
+
   global:
     client-server:
       default_character_set: utf8
@@ -22,6 +26,10 @@ mysql:
     # my.cnf sections changes
     mysqld:
       skip-grant-tables: noarg_present
+      lower_case_table_names: 1
+      innodb_buffer_pool_size: 512M
+      max_allowed_packet: -64M
+      innodb_file_per_table: true
 
     mysql:
       # my.cnf param that not require value
@@ -29,12 +37,8 @@ mysql:
 
   # Override any names defined in map.jinja
   lookup:
+    # If you want to install Oracle please add mysql-community-*, mysql-enterprise-*, mysql-embedded-* and mysqld as a service.
     server: mysql-community-server
     client: mysql-community-client
     service: mysqld
-#    python: python-mysqldb
-
-  # Install MySQL headers
-  dev:
-    # Install dev package - defaults to False
-    install: False
+    python: python-mysqldb

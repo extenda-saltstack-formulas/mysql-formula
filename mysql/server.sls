@@ -4,6 +4,7 @@ include:
 
 {% from "mysql/defaults.yaml" import rawmap with context %}
 {%- set mysql = salt['grains.filter_by'](rawmap, grain='os', merge=salt['pillar.get']('mysql:lookup')) %}
+{%- set mysql_version = salt['pillar.get']('mysql:version', 'latest') %}
 
 {% set os = salt['grains.get']('os', None) %}
 {% set os_family = salt['grains.get']('os_family', None) %}
@@ -15,23 +16,7 @@ include:
 {% set mysql_datadir = salt['pillar.get']('mysql:server:mysqld:datadir', '/var/lib/mysql') %}
 
 {% if mysql_root_password %}
-{% if os_family == 'Debian' %}
-mysql_debconf_utils:
-  pkg.installed:
-    - name: {{ mysql.debconf_utils }}
-
-mysql_debconf:
-  debconf.set:
-    - name: {{ mysql.server }}
-    - data:
-        'mysql-server/root_password': {'type': 'password', 'value': '{{ mysql_root_password }}'}
-        'mysql-server/root_password_again': {'type': 'password', 'value': '{{ mysql_root_password }}'}
-        '{{ mysql.server }}/start_on_boot': {'type': 'boolean', 'value': 'true'}
-    - require_in:
-      - pkg: {{ mysql.server }}
-    - require:
-      - pkg: mysql_debconf_utils
-{% elif os_family in ['RedHat', 'Suse'] %}
+{% if os_family in ['RedHat', 'Suse'] %}
 mysql_root_password:
   cmd.run:
     - name: mysqladmin --user {{ mysql_root_user }} password '{{ mysql_root_password|replace("'", "'\"'\"'") }}'
@@ -64,33 +49,11 @@ mysql_delete_anonymous_user_{{ host }}:
 {% endif %}
 {% endif %}
 
-{% if os_family == 'Arch' %}
-# on arch linux: inital mysql datadirectory is not created
-mysql_install_datadir:
-  cmd.run:
-{% if mysql.version is defined and mysql.version >= 5.7 %}
-    - name: mysqld --initialize-insecure --user=mysql --basedir=/usr --datadir={{ mysql_datadir }}
-{% else %}
-    - name: mysql_install_db --user=mysql --basedir=/usr --datadir={{ mysql_datadir }}
-{% endif %}
-    - user: root
-    - creates: {{ mysql_datadir }}/mysql/user.frm
-    - env:
-        - TMPDIR: '/tmp'
-    - require:
-      - pkg: {{ mysql.server }}
-      - file: mysql_config
-    - require_in:
-      - service: mysqld
-{% endif %}
-
 mysqld-packages:
   pkg.installed:
     - name: {{ mysql.server }}
-{% if os_family == 'Debian' and mysql_root_password %}
-    - require:
-      - debconf: mysql_debconf
-{% endif %}
+    - version: {{ mysql_version }}
+    - refresh: True
     - require_in:
       - file: mysql_config
 
@@ -99,28 +62,6 @@ mysqld-packages:
 mysql_initialize:
   cmd.run:
     - name: mysqld --initialize-insecure --user=mysql --basedir=/usr --datadir={{ mysql_datadir }}
-    - user: root
-    - creates: {{ mysql_datadir}}/mysql/
-    - require:
-      - pkg: {{ mysql.server }}
-{% endif %}
-
-{% if os_family in ['RedHat', 'Suse'] and mysql.server == 'mariadb-server' %}
-# For MariaDB it's enough to only create the datadir
-mysql_initialize:
-  file.directory:
-    - name: {{ mysql_datadir }}
-    - user: mysql
-    - group: mysql
-    - makedirs: True
-    - require:
-      - pkg: {{ mysql.server }}
-{% endif %}
-
-{% if os_family in ['Gentoo'] %}
-mysql_initialize:
-  cmd.run:
-    - name: emerge --config {{ mysql.server }}
     - user: root
     - creates: {{ mysql_datadir}}/mysql/
     - require:

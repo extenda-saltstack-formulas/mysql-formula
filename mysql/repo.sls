@@ -1,12 +1,9 @@
-include:
-  - mysql.config
-
 {% from "mysql/defaults.yaml" import rawmap with context %}
 {%- set mysql = salt['grains.filter_by'](rawmap, grain='os', merge=salt['pillar.get']('mysql:lookup')) %}
+{%- set mysql_version = salt['pillar.get']('mysql:version', 'latest') %}
 
 # Completely ignore non-RHEL based systems
 # TODO: Add Debian and Suse systems.
-# TODO: Allow user to specify MySQL version and alter yum repo file accordingly.
 {% if grains['os_family'] == 'RedHat' %}
   {% if grains['osmajorrelease']|int == 5 %}
   {% set rpm_source = "http://repo.mysql.com/mysql57-community-release-el5.rpm" %}
@@ -25,7 +22,6 @@ include:
     'rpm': rpm_source
  } %}
 
-
 install_pubkey_mysql:
   file.managed:
     - name: /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql
@@ -38,13 +34,18 @@ mysql57_community_release:
       - mysql57-community-release: {{ salt['pillar.get']('mysql:repo_rpm', pkg.rpm) }}
     - require:
       - file: install_pubkey_mysql
+
+mysql55-community:
+  pkgrepo.managed:
+    - enabled: True
     - require_in:
-      {% if "server_config" in mysql %}
-      - pkg: {{ mysql.server }}
-      {% endif %}
-      {% if "clients_config" in mysql %}
-      - pkg: {{ mysql.client }}
-      {% endif %}
+      - pkg: mysqld-packages
+
+mysql56-community:
+  pkgrepo.managed:
+    - enabled: True
+    - require_in:
+      - pkg: mysqld-packages
 
 set_pubkey_mysql:
   file.replace:
