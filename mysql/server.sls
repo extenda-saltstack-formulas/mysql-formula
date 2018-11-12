@@ -54,6 +54,7 @@ mysqld-packages:
     - name: {{ mysql.server }}
     - version: {{ mysql_version }}
     - refresh: True
+    - hold: True
     - require_in:
       - file: mysql_config
 
