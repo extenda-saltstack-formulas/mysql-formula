@@ -21,6 +21,7 @@ include:
 {% if mysql_dev %}
   - mysql.dev
 {% endif %}
+  - mysql.disable_upgrade
 
 
 {% if (db_states|length() + user_states|length()) > 0 %}
